@@ -16,6 +16,7 @@ library(Seurat)
 library(ggplot2)
 library(here)
 library(future)
+library(RColorBrewer)
 
 # get the working directory
 path = here()
@@ -23,3 +24,80 @@ path = here()
 # read the megadata
 megadata = read_rds(file.path(str_remove(path,"xenium_epilepsy_repo"),"REALfull_QC_RCTD_clust_processed.rds"))
 
+# Reproducing plots from Larissa
+
+p1 <- DimPlot(megadata, shuffle = TRUE, label = TRUE) + coord_fixed()
+p2 <- DimPlot(megadata, group.by = 'orig.ident', shuffle = TRUE) + coord_fixed()
+p3 <- DimPlot(megadata, group.by = 'ILAE_score', shuffle = TRUE) + coord_fixed()
+p4 <- DimPlot(megadata, group.by = 'predicted.celltype', shuffle = TRUE) + coord_fixed()
+p5 <- DimPlot(megadata, group.by = 'FFPE_FF', shuffle = TRUE) + coord_fixed()
+p6 <- DimPlot(megadata, group.by = 'XOA_version', shuffle = TRUE) + coord_fixed()
+p7 <- DimPlot(megadata, group.by = 'cell_segmentation', shuffle = TRUE) + coord_fixed()
+p8 <- DimPlot(megadata, group.by = 'type') + coord_fixed()
+
+cellID_count <- megadata@meta.data %>%
+  group_by(sample_type, predicted.celltype) %>%
+  summarize(cell_count = n()) %>%
+  ungroup()%>%
+  pivot_wider(names_from = predicted.celltype, values_from = cell_count, values_fill = 0)
+
+# Melt to long format for plotting
+long_data <- cellID_count %>%
+  pivot_longer(cols = -c(sample_type), 
+               names_to = "celltype", 
+               values_to = "count")
+
+# Plot
+custom_palette <- colorRampPalette(brewer.pal(9, "Paired"))(9)
+#pdf(here('plots', 'with RCTD','integrate_hamony', 'countCellID_Nelson.pdf'), width = 15, height=9)
+ggplot(long_data, aes(x = sample_type, y = count, fill = celltype)) +
+  geom_bar(stat = "identity", position = "stack") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+  labs(title = "n Cells per Sample for for each predicted celltype",
+       x = "Sample",
+       y = "Count") +
+  scale_fill_manual(values = custom_palette)
+dev.off()
+
+# do same for percent cells
+cellID_perc <- dat@meta.data %>%
+  group_by(sample_type, predicted.celltype) %>%
+  summarize(cell_count = n()) %>%
+  ungroup() %>%
+  group_by(sample_type) %>%
+  mutate(proportion = cell_count / sum(cell_count)) %>%
+  select(-cell_count) %>%
+  pivot_wider(names_from = predicted.celltype, values_from = proportion, values_fill = 0)
+
+# Melt to long format for plotting
+long_data <- cellID_perc %>%
+  pivot_longer(cols = -c(sample_type), 
+               names_to = "celltype", 
+               values_to = "proportion")
+
+# Plot
+pdf(here('plots', 'with RCTD','integrate_hamony', 'propCellID_Nelson.pdf'), width = 15, height=9)
+ggplot(long_data, aes(x = sample_type, y = proportion, fill = celltype)) +
+  geom_bar(stat = "identity", position = "stack") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+  labs(title = "% Cells per Sample for each predicted cell ype",
+       x = "Sample",
+       y = "Proportion") +
+  scale_fill_manual(values = custom_palette)
+dev.off()
+
+
+#some GC plotting
+# plot some QC metrics
+p1<- VlnPlot_scCustom(seurat_object = dat, features = "nFeature_Xenium", 
+                      group.by = 'sample_type',pt.size = 0)+
+  ggtitle(paste('nFeature_Xenium (',dim(dat)[2],'total cells)'))
+
+p2<- VlnPlot_scCustom(seurat_object = dat, features = "nCount_Xenium", group.by = 'sample_type',pt.size = 0)
+
+#save plots as pdf if needed for presentations etc
+pdf(here('plots', 'with RCTD','integrate_hamony', 'dat_QC_postQC.pdf'), width = 15, height=9)
+p1/p2
+dev.off()
