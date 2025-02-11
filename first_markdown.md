@@ -3,33 +3,33 @@ first mark down
 Mathias Delhaye
 2025-02-11
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax
-for authoring HTML, PDF, and MS Word documents. For more details on
-using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that
-includes both content as well as the output of any embedded R code
-chunks within the document. You can embed an R code chunk like this:
-
 ``` r
-summary(cars)
+library(Seurat)
 ```
 
-    ##      speed           dist       
-    ##  Min.   : 4.0   Min.   :  2.00  
-    ##  1st Qu.:12.0   1st Qu.: 26.00  
-    ##  Median :15.0   Median : 36.00  
-    ##  Mean   :15.4   Mean   : 42.98  
-    ##  3rd Qu.:19.0   3rd Qu.: 56.00  
-    ##  Max.   :25.0   Max.   :120.00
+    ## Loading required package: SeuratObject
 
-## Including Plots
+    ## Loading required package: sp
 
-You can also embed plots, for example:
+    ## 'SeuratObject' was built under R 4.4.1 but the current version is
+    ## 4.4.2; it is recomended that you reinstall 'SeuratObject' as the ABI
+    ## for R may have changed
 
-![](first_markdown_files/figure-gfm/pressure-1.png)<!-- -->
+    ## 'SeuratObject' was built with package 'Matrix' 1.7.0 but the current
+    ## version is 1.7.1; it is recomended that you reinstall 'SeuratObject' as
+    ## the ABI for 'Matrix' may have changed
 
-Note that the `echo = FALSE` parameter was added to the code chunk to
-prevent printing of the R code that generated the plot.
+    ## 
+    ## Attaching package: 'SeuratObject'
+
+    ## The following objects are masked from 'package:base':
+    ## 
+    ##     intersect, t
+
+``` r
+library(SeuratObject)
+library(ggplot2)
+library(here)
+```
+
+    ## here() starts at C:/Users/Mango/Documents/xenium_epilepsy/xenium_epilepsy_repo
