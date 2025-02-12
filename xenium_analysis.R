@@ -17,6 +17,7 @@ library(ggplot2)
 library(here)
 library(future)
 library(RColorBrewer)
+library(scCustomize)
 
 # get the working directory
 path = here()
@@ -61,7 +62,7 @@ ggplot(long_data, aes(x = sample_type, y = count, fill = celltype)) +
 dev.off()
 
 # do same for percent cells
-cellID_perc <- dat@meta.data %>%
+cellID_perc <- megadata@meta.data %>%
   group_by(sample_type, predicted.celltype) %>%
   summarize(cell_count = n()) %>%
   ungroup() %>%
@@ -77,7 +78,7 @@ long_data <- cellID_perc %>%
                values_to = "proportion")
 
 # Plot
-pdf(here('plots', 'with RCTD','integrate_hamony', 'propCellID_Nelson.pdf'), width = 15, height=9)
+#pdf(here('plots', 'with RCTD','integrate_hamony', 'propCellID_Nelson.pdf'), width = 15, height=9)
 ggplot(long_data, aes(x = sample_type, y = proportion, fill = celltype)) +
   geom_bar(stat = "identity", position = "stack") +
   theme_minimal() +
@@ -91,13 +92,15 @@ dev.off()
 
 #some GC plotting
 # plot some QC metrics
-p1<- VlnPlot_scCustom(seurat_object = dat, features = "nFeature_Xenium", 
+p1<- VlnPlot_scCustom(seurat_object = megadata, features = "nFeature_Xenium", 
                       group.by = 'sample_type',pt.size = 0)+
-  ggtitle(paste('nFeature_Xenium (',dim(dat)[2],'total cells)'))
+  ggtitle(paste('nFeature_Xenium (',dim(megadata)[2],'total cells)'))
 
-p2<- VlnPlot_scCustom(seurat_object = dat, features = "nCount_Xenium", group.by = 'sample_type',pt.size = 0)
+p2<- VlnPlot_scCustom(seurat_object = megadata, features = "nCount_Xenium", group.by = 'sample_type',pt.size = 0)
 
 #save plots as pdf if needed for presentations etc
 pdf(here('plots', 'with RCTD','integrate_hamony', 'dat_QC_postQC.pdf'), width = 15, height=9)
 p1/p2
 dev.off()
+
+subset_megadata <- subset(megadata, subset = sample_type == "H1_e")
