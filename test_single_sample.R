@@ -1,4 +1,4 @@
-L15 <- read_rds("E:/Human epilepsy project/Xenium/2024-12-06/Seurat_files/L15_Seurat_obj.rds")
+L15 <- read_rds("/Users/Mathias/Documents/PhD/Xenium epilepsy/FINAL_TO_USE_EPILEPSY/L15_Seurat_obj.rds")
 xenium_l15 <- L15@assays$Xenium
 sum(xenium_l15@layers$counts@x)
 
