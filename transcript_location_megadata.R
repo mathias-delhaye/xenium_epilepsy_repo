@@ -43,7 +43,7 @@ transcript_df_long <- transcript_df_long %>%
   extract(origin, into = c("transcript_location", "sample"), regex = "(.*)_([A-Z]\\d+_[ep])") %>% 
   mutate(across(where(is.character),as.factor)) #change the character variables into factor ones
 
-# compute the ratio in_segmentation_transcript/tot_/tot_transcript
+# compute the ratio in_segmentation_transcript/tot_transcript
 ratio_transcript <- transcript_df_long %>% 
   group_by(gene_list,sample) %>% 
   summarise(ratio=min(transcript_number)/max(transcript_number)) %>% #min(transcript_number)==in_segmentation & max(transcript_number)==tot_trancript
@@ -79,14 +79,14 @@ syn_gene <- gene_list_loc %>%
   filter(Location == "synaptic")
 gene_matrix_syn <- gene_matrix[syn_gene$Gene,]                         
 
-hm_panel <- heatmap_0to1(gene_matrix_panel, fontsize_row = 5)
-ggsave(paste(path,"/figures/transcripts_location/hm_panel.png", sep = ""),hm_panel, width = 9, height = 6, units = "in", dpi = 150, bg="white")
-hm_syn <- heatmap_0to1(gene_matrix_syn)
-ggsave(paste(path,"/figures/transcripts_location/hm_syn.png", sep = ""),hm_syn, width = 9, height = 6, units = "in", dpi = 150, bg="white")
+hm_panel <- heatmap_0to1scale(gene_matrix_panel, fontsize_row = 5)
+ggsave(paste(fig_path,"/hm_panel.png", sep = ""),hm_panel, width = 9, height = 6, units = "in", dpi = 150, bg="white")
+hm_syn <- heatmap_0to1scale(gene_matrix_syn)
+ggsave(paste(fig_path,"/hm_syn.png", sep = ""),hm_syn, width = 9, height = 6, units = "in", dpi = 150, bg="white")
 
 # summarise the data
-summary_stats_sans_l10 <- ratio_transcript %>%
-  filter(sample != "L10_p") %>% 
+summary_stats <- ratio_transcript %>%
+  #filter(sample_type != "L10_p") %>% 
   group_by(gene_list) %>%
   summarise(
     mean_ratio = mean(ratio, na.rm = TRUE),
@@ -96,17 +96,20 @@ summary_stats_sans_l10 <- ratio_transcript %>%
   ) %>%
   arrange(mean_ratio) %>% 
   mutate(rank = row_number()) %>% 
-  ungroup()
+  ungroup() %>% 
+  mutate(location = if_else(gene_list%in%syn_gene$Gene, "synaptic", "non_synaptic"), gene_list = as.character(gene_list))
+# if_else used to assign synaptic if genes in gene_list are in syn_gene$Gene, else non_synaptic, as change gene_list in character as needed for plotting
 
 # scatter plot of the gene rank by the mean ratio of transcript in_segmentation/tot_transcripts
 # synaptic genes are highlighted
 
-p <- ggplot(summary_stats_sans_l10, aes(x = rank, y = mean_ratio, color = location, size = point_size)) +
-  geom_point(alpha = 0.7) +
-  geom_text_repel(aes(label = label), vjust = -1, size = 3, color = "black",max.overlaps = 25, box.padding = 0.5) +  # Add gene names and prevent overlap
-  geom_hline(yintercept = 0.5, linetype = "dashed", color = "red") +
+p <- ggplot(summary_stats, aes(x = rank, y = mean_ratio, color = location)) +
+  geom_point(aes(size = ifelse(location == "synaptic", 3, 1)),alpha = 0.7) + # if synaptic gene, size 3, else 1
+  geom_text_repel(aes(label = ifelse(location == "synaptic", gene_list, NA)), # if synaptic gene, label = gene_list, else NA
+                  vjust = -1, size = 3, color = "black", max.overlaps = 25, box.padding = 0.5) +  
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "red")+
   scale_color_manual(values = c("synaptic" = "red", "other" = "blue")) + 
-  scale_size_continuous(range = c(1, 3), guide = "none") +  # Ensures small vs large dot contrast
+  scale_size_identity(guide = "none") +  # Directly use mapped sizes without scale modification
   theme_minimal() +
   scale_y_continuous(limits = c(0,1))+
   labs(title = "Ranked Scatter Plot of Transcript Ratios",
@@ -114,4 +117,54 @@ p <- ggplot(summary_stats_sans_l10, aes(x = rank, y = mean_ratio, color = locati
        y = "Mean Ratio (Soma / Total)",
        color = "Gene Type") # Legend title
 
-ggsave(paste(path,"/figures/transcripts_location/ranked_scattered_plot.png", sep = ""),p, width = 12, height = 6, units = "in", dpi = 150, bg="white")
+ggsave(paste(fig_path,"/ranked_scattered_plot.png", sep = ""),p, width = 12, height = 6, units = "in", dpi = 150, bg="white")
+
+
+## Test quality sections in relation with ratio
+
+df_transcript_quality <- megadata@meta.data %>% # table with all the variable that could impact the quality of the sample
+  group_by(sample_type) %>% 
+  summarize(median_cell_count = median(nCount_Xenium),
+            block_age = unique(age_block),
+            ILAE = unique(ILAE_score),
+            PMI = unique(PMI))
+
+ratio <- c()
+for (i in 1:16 ){
+  tot_transcript = c()
+  mol_list <- megadata@images[[i]]@molecules$molecules # get the list of mol from the image in the megadata
+  for (molname in gene_list) { #going through the genes
+    tot_transcript <- c(tot_transcript,length(mol_list[[molname]])) #adding the tot transcript for each gene
+  }
+  ratio <- c(ratio, sum(megadata@assays$Xenium@layers[[i]])/sum(tot_transcript)) # ratio of the tot nb of transcript detected in segmented area for each sample/tot nb of transcript for the sample
+}
+
+df_transcript_quality$ratio_transcript = ratio #adding a column for the ratio
+
+df_transcript_quality$ILAE[sample_type=="E008_efr"] = NA
+
+df_transcript_quality$ILAE[sample_type=="E015_efr"] = "C"
+
+p_block_age <- df_transcript_quality %>% 
+  #filter(is.na(ILAE)|ILAE != "P") %>% 
+  ggplot(aes(x = ratio_transcript, y = block_age, label = sample_type, colour = ILAE))+
+  geom_point()+
+  geom_text_repel(size = 3,  box.padding = 0.5, max.overlaps = 20)+
+  #scale_x_continuous(limits = c(0,1))+
+  scale_y_continuous(limits = c(0,10))+
+  geom_smooth(method = "lm", color = "blue", se = FALSE)
+print(p_block_age)
+
+ggsave(paste(fig_path,"/ratio_transcriptxblock_age.png", sep = ""),p_block_age, units = "in", dpi = 150, bg="white")
+
+p_median_transcript <- df_transcript_quality %>% 
+  #filter(is.na(ILAE)|ILAE != "P") %>% 
+  ggplot(aes(x = ratio_transcript, y = median_cell_count, label = sample_type, colour = ILAE))+
+  geom_point()+
+  geom_text_repel(size = 3,  box.padding = 0.5, max.overlaps = 20)+
+  #scale_x_continuous(limits = c(0,1))+
+  #scale_y_continuous(limits = c(0,10))+
+  geom_smooth(method = "lm", color = "blue", se = FALSE)
+print(p_median_transcript)
+
+ggsave(paste(fig_path,"/ratio_transcriptxmedian_transcript.png", sep = ""),p_median_transcript, units = "in", dpi = 150, bg="white")
