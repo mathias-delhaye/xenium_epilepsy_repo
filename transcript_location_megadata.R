@@ -55,18 +55,35 @@ gene_matrix <- ratio_transcript %>%
   column_to_rownames("gene_list") %>%
   as.matrix()
 
+# Extract the category for each sample
+sample_to_ILAE <- unique(megadata@meta.data[, c("sample_type", "ILAE_score")]) 
+sample_to_ILAE <- sample_to_ILAE %>% 
+  mutate(sample_type = case_when(
+    sample_type == "E008_efr"~ "E008_e",
+    sample_type == "E015_efr" ~ "E015_e",
+    TRUE ~ sample_type #keep all other values unchanged
+  ),
+  ILAE_score = case_when(
+    sample_type == "E015_e" ~ "C",
+    TRUE ~ ILAE_score #keep all other values unchanged
+  ))
+rownames(sample_to_ILAE) <- NULL
+
 # Plot heatmap to look at the distribution of the ratio for each gene and each sample
-heatmap_0to1scale <- function(x = mat, show_rownames = TRUE, fontsize_row = 7){
+heatmap_0to1scale <- function(x = mat, show_rownames = TRUE, fontsize_row = 7, col_names = colnames(x)){
   pheatmap(x, 
            cluster_rows = TRUE,  # Cluster similar genes
            cluster_cols = TRUE,
            show_rownames = show_rownames,
            fontsize_row = fontsize_row,
+           labels_col = col_names,
            color = colorRampPalette(c("blue", "white", "red"))(50),
            main = "Heatmap of Transcript Ratios")
 }
 hm_tot <- heatmap_0to1scale(gene_matrix, show_rownames = FALSE)
+hm_tot_ILAE <- heatmap_0to1scale(gene_matrix, show_rownames = FALSE, col_names = sample_to_ILAE$ILAE_score)
 ggsave(file.path(fig_path,"hm_tot.png"),hm_tot, width = 9, height = 6, units = "in", dpi = 150, bg="white")
+ggsave(file.path(fig_path,"hm_tot_ILAE.png"),hm_tot_ILAE, width = 9, height = 6, units = "in", dpi = 150, bg="white")
 
 # list of genes from human panel
 gene_list_loc <- read.csv(file.path(str_remove(path,"xenium_epilepsy_repo"),"gene_panel.csv"))
