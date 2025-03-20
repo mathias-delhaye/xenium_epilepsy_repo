@@ -16,10 +16,10 @@ library(PRECAST)
 options(future.globals.maxSize = 25000 * 1024 ^ 2)
 
 path <- here()
-fig_path <- file.path(str_remove(path,"/xenium_epilepsy_repo"),"figures/transcripts_location")
+fig_path <- file.path(str_remove(path,"/xenium_epilepsy_repo"),"figures/precast - k cluster")
 
 # read the megadata
-megadata = read_rds(file.path(str_remove(path,"xenium_epilepsy_repo"),"REALfull_QC_RCTD_clust_processed.rds"))
+megadata = read_rds(file.path(str_remove(path,"xenium_epilepsy_repo"),"MegaData_v3.rds"))
 # name of all samples in megadata in order assigned in megadata
 sample_names <- names(megadata@images)
 # all the genes analyzed with xenium (aka 266 panel + 100 epil specific)
@@ -113,7 +113,7 @@ for (im in sample_names){
 
 #saving seurat list
 
-#saveRDS(seulist,file.path(str_remove(path,"/xenium_epilepsy_repo"),"seulist_samplesbinned_prePRECAST.rds"))
+saveRDS(seulist,file.path(str_remove(path,"/xenium_epilepsy_repo"),"seulist_samplesbinned_prePRECAST.rds"))
 
 # testing different k value
 
@@ -138,43 +138,49 @@ for (k in (15:25)){
   precast_list[[paste0("k-", as.character(k))]] <- PRECASTObj
 }
 
-saveRDS(precast_list, file.path(str_remove(path,"/xenium_epilepsy_repo"),"precast_list_k15-25.rds"))
+#saveRDS(precast_list, file.path(str_remove(path,"/xenium_epilepsy_repo"),"precast_list_k15-25.rds"))
 
-for (k in (5:11)){
-  seuInt <- L5_k_15_25[[k]]@seulist[[1]]
-  seuInt@meta.data$cluster <- factor(unlist(L5_k_15_25[[k]]@resList$cluster))
-  seuInt@meta.data$batch <- 1
-  seuInt <- Add_embed(L5_k_15_25[[k]]@resList$hZ[[1]], seuInt, embed_name = "PRECAST")
-  posList <- lapply(L5_k_15_25[[k]]@seulist, function(x) cbind(x$row, x$col))
-  seuInt <- Add_embed(posList[[1]], seuInt, embed_name = "position")
-  Idents(seuInt) <- factor(seuInt@meta.data$cluster)
-  
-  seuInt
-  
-  ## The low-dimensional embeddings obtained by PRECAST are saved in PRECAST reduction slot.
-  png(paste0("L5_",names(L5_k_15_25[k]),".png"),width = 600, height = 450)
-  SpaPlot(seuInt, item = "cluster", point_size = 4, combine = F)[[1]] + cowplot::theme_cowplot() +
-    ggplot2::xlab("row") + ggplot2::ylab("col")
+for (n in names(precast_list)){
+  k = as.numeric(str_remove(n, "k-"))
+  PRECASTObj <- precast_list[[n]]
+  PRECASTObj <- SelectModel(PRECASTObj)
+  for (m in names(PRECASTObj@seulist)){
+    bin_name <- colnames(PRECASTObj@seulist[[m]])
+    colnames(PRECASTObj@seulist[[m]]) <- paste0(m,str_remove(bin_name,"bin"))
+    row.names(PRECASTObj@seulist[[m]]@meta.data) <- paste0(m,str_remove(bin_name,"bin"))
+  }
+  seuInt <- IntegrateSpaData(PRECASTObj, species = "unknown")
+  #seuInt$batch <- seuInt$orig.ident
+  pl <- SpaPlot(seuInt, item = "cluster", batch = NULL, point_size = 3, combine = FALSE,
+                nrow.legend = k)
+  for (s in (1:16)){
+    smpl <- sample_names[s]
+    png(file.path(fig_path,paste0(smpl,"_",n,".png")),width = 400*max(seulist[[smpl]]$row)/max(seulist[[smpl]]$col), height = 400)
+    print(pl[[s]]) #needs to be explicitely printed
+    dev.off()
+  }
+}
+n = "k-15"
+k = as.numeric(str_remove(n, "k-"))
+PRECASTObj <- precast_list[[n]]
+PRECASTObj <- SelectModel(PRECASTObj)
+for (m in names(PRECASTObj@seulist)){
+  bin_name <- colnames(PRECASTObj@seulist[[m]])
+  colnames(PRECASTObj@seulist[[m]]) <- paste0(m,str_remove(bin_name,"bin"))
+  row.names(PRECASTObj@seulist[[m]]@meta.data) <- paste0(m,str_remove(bin_name,"bin"))
+}
+seuInt <- IntegrateSpaData(PRECASTObj, species = "unknown")
+seuInt$batch <- seuInt$orig.ident
+pl <- SpaPlot(seuInt, item = "cluster", batch = NULL, point_size = 3, combine = FALSE,
+              nrow.legend = k)
+for (s in (1:16)){
+  smpl <- sample_names[s]
+  png(file.path(fig_path,paste0(smpl,"_",n,".png")),width = 400*max(seulist[[smpl]]$row)/max(seulist[[smpl]]$col), height = 400)
+  print(pl[[s]]) #needs to be explicitely printed
   dev.off()
 }
 
-seuInt <- precast_list[[1]]@seulist[[1]]
-seuInt@meta.data$cluster <- factor(unlist(precast_list[[1]]@resList$cluster[1,1]))
-seuInt@meta.data$batch <- 1
-seuInt <- Add_embed(precast_list[[1]]@resList$hZ[[1]], seuInt, embed_name = "PRECAST")
-posList <- lapply(precast_list[[1]]@seulist, function(x) cbind(x$row, x$col))
-seuInt <- Add_embed(posList[[1]], seuInt, embed_name = "position")
-Idents(seuInt) <- factor(seuInt@meta.data$cluster)
-
-seuInt
-
-## The low-dimensional embeddings obtained by PRECAST are saved in PRECAST reduction slot.
-png(paste0("L5_",names(L5_k_15_25[11]),".png"),width = 600, height = 450)
-SpaPlot(seuInt, item = "cluster", point_size = 4, combine = F)[[1]] + cowplot::theme_cowplot() +
-  ggplot2::xlab("row") + ggplot2::ylab("col")
+smpl <- sample_names[1]
+png(file.path(fig_path,paste0(smpl,"_",n,".png")),width = 400*max(seulist[[smpl]]$row)/max(seulist[[smpl]]$col), height = 400)
+pl[[1]]
 dev.off()
-
-resList <- precast_list[[1]]@resList
-precast_list[[1]] <- SelectModel(precast_list[[1]])
-
-seuInt <- precast_list[[1]]@seulist
